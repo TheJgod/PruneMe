@@ -17,6 +17,17 @@ model = AutoModelForCausalLM.from_pretrained(model_path,
                                              output_hidden_states=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
+print("After Pruning a layer")
+
+total_params = sum(p.numel() for p in model.parameters())
+trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+print(f"Total parameters: {total_params:,}")
+print(f"Trainable parameters: {trainable_params:,}")
+
+model_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
+print(f"Model size: {model_size_bytes / (1024 ** 2):.2f} MB")
+
 # Function to generate text
 def generate_text(input_text):
     # Encode the input text
