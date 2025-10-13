@@ -42,6 +42,14 @@ def main(model_path: str, dataset: str, dataset_column: str, batch_size: int, ma
 
     model.eval()
 
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params:,}")
+    print(f"Trainable parameters: {trainable_params:,}")
+
+    model_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
+    print(f"Model size: {model_size_bytes / (1024 ** 2):.2f} MB")
 
                   
     if "gsm8k" in dataset:
