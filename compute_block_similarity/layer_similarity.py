@@ -45,7 +45,7 @@ def main(model_path: str, dataset: str, dataset_column: str, batch_size: int, ma
 
                   
     if "gsm8k" in dataset:
-         datasets.load_dataset(dataset, "main", split=dataset_subset)
+         dataset = datasets.load_dataset(dataset, "main", split=dataset_subset)
     else:
          dataset = datasets.load_dataset(dataset, split=dataset_subset)
     if dataset_size:
