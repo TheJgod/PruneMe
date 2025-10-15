@@ -1,8 +1,18 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+import argparse
 
+# 1️⃣ Set up argument parser
+parser = argparse.ArgumentParser(description="Run a text generation model")
+parser.add_argument(
+    "--model_path",
+    type=str,
+    default="./merged",  # default if nothing is passed from shell
+    help="Path to the Mistral model"
+)
+args = parser.parse_args()
 # Path to your pruned Mistral model
-model_path = "./merged"
+model_path = args.model_path
 
 # 4-bit quantization setup
 quantization_config = BitsAndBytesConfig(
