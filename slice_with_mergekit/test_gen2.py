@@ -50,7 +50,7 @@ def generate_text(input_text):
         **inputs,
         max_new_tokens=50,
         pad_token_id=tokenizer.pad_token_id,
-        attention_mask=inputs["attention_mask"],
+        #attention_mask=inputs["attention_mask"],
         do_sample=True,  # enables sampling (optional)
         top_p=0.95,
         temperature=0.8,
