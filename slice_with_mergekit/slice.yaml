@@ -1,11 +1,11 @@
 slices:
   - sources:
       - model: unsloth/Mistral-Small-3.2-24B-Instruct-2506-unsloth-bnb-4bit
-        modules: [text_model] 
+        modules: [text_config] 
         layer_range: [0, 28]
   - sources:
       - model: unsloth/Mistral-Small-3.2-24B-Instruct-2506-unsloth-bnb-4bit
-        modules: [text_model] 
+        modules: [text_config] 
         layer_range: [32,40]
             
 merge_method: passthrough
