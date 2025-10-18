@@ -1,10 +1,10 @@
 slices:
   - sources:
-      - model: mistralai/Mistral-7B-Instruct-v0.2
-        layer_range: [0, 21]
+      - model: unsloth/Mistral-Small-3.2-24B-Instruct-2506-unsloth-bnb-4bit
+        layer_range: [0, 28]
   - sources:
-      - model: mistralai/Mistral-7B-Instruct-v0.2
-        layer_range: [29,32]
+      - model: unsloth/Mistral-Small-3.2-24B-Instruct-2506-unsloth-bnb-4bit
+        layer_range: [32,40]
             
 merge_method: passthrough
 dtype: bfloat16
