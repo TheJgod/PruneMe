@@ -22,8 +22,14 @@ np.random.seed(42)
 class CSVDataset(Dataset):
     """Custom Dataset for loading data from CSV files."""
     def __init__(self, csv_path: str, column_name: str, dataset_size: Optional[int] = None, 
-                 use_instruction_format: bool = False, query_column: Optional[str] = None):
-        self.data = pd.read_csv(csv_path)
+                 use_instruction_format: bool = False, query_column: Optional[str] = None,
+                 encoding: str = 'utf-8'):
+        try:
+            self.data = pd.read_csv(csv_path, encoding=encoding)
+        except UnicodeDecodeError:
+            # Try common alternative encodings
+            print(f"Failed to read with {encoding}, trying latin-1...")
+            self.data = pd.read_csv(csv_path, encoding='latin-1')
         if column_name not in self.data.columns:
             raise ValueError(f"Column '{column_name}' not found in CSV. Available columns: {list(self.data.columns)}")
         
@@ -55,7 +61,7 @@ class CSVDataset(Dataset):
 
 def main(model_path: str, csv_path: str, dataset_column: str, batch_size: int, max_length: int,
          layers_to_skip: int, dataset_size: Optional[int] = None, use_instruction_format: bool = False,
-         query_column: Optional[str] = None):
+         query_column: Optional[str] = None, encoding: str = 'utf-8'):
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -87,8 +93,8 @@ def main(model_path: str, csv_path: str, dataset_column: str, batch_size: int, m
     print(f"Model size: {model_size_bytes / (1024 ** 2):.2f} MB")
 
     # Load custom CSV dataset
-    dataset = CSVDataset(csv_path, dataset_column, dataset_size, use_instruction_format, query_column)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    dataset = CSVDataset(csv_path, dataset_column, dataset_size, use_instruction_format, query_column, encoding)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
     # Initialize a list to store distances for each block across the dataset
     all_distances = [[] for _ in range(model.config.num_hidden_layers - layers_to_skip)]
@@ -154,10 +160,11 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_size", type=int, help="Optional argument to specify the size of the dataset.")
     parser.add_argument("--use_instruction_format", action="store_true", help="Format data as instruction-query pairs.")
     parser.add_argument("--query_column", type=str, help="Column containing the full query (required if using instruction format).")
+    parser.add_argument("--encoding", type=str, default='utf-8', help="CSV file encoding (utf-8, latin-1, cp1252, etc.).")
     parser.add_argument("--device", type=str, help="Device to run the model on ('cpu', 'cuda').")
 
     args = parser.parse_args()
 
     main(args.model_path, args.csv_path, args.dataset_column, args.batch_size,
          args.max_length, args.layers_to_skip, args.dataset_size, 
-         args.use_instruction_format, args.query_column)
+         args.use_instruction_format, args.query_column, args.encoding)
