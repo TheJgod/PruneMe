@@ -23,13 +23,14 @@ class CSVDataset(Dataset):
     """Custom Dataset for loading data from CSV files."""
     def __init__(self, csv_path: str, column_name: str, dataset_size: Optional[int] = None, 
                  use_instruction_format: bool = False, query_column: Optional[str] = None,
-                 encoding: str = 'utf-8'):
+                 encoding: str = 'utf-8', delimiter: str = ';'):
         try:
-            self.data = pd.read_csv(csv_path, encoding=encoding)
+            self.data = pd.read_csv(csv_path, encoding=encoding, sep=delimiter)
         except UnicodeDecodeError:
             # Try common alternative encodings
             print(f"Failed to read with {encoding}, trying latin-1...")
-            self.data = pd.read_csv(csv_path, encoding='latin-1')
+            self.data = pd.read_csv(csv_path, encoding='latin-1', sep=delimiter)
+        
         if column_name not in self.data.columns:
             raise ValueError(f"Column '{column_name}' not found in CSV. Available columns: {list(self.data.columns)}")
         
