@@ -2,12 +2,12 @@ import logging
 import csv
 import argparse
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-import datasets
 
 from utils import get_last_non_padded_tokens, compute_block_distances
 from typing import Optional
@@ -19,8 +19,43 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 
-def main(model_path: str, dataset: str, dataset_column: str, batch_size: int, max_length: int,
-         layers_to_skip: int, dataset_size: Optional[int] = None, dataset_subset: Optional[str] = "eval"):
+class CSVDataset(Dataset):
+    """Custom Dataset for loading data from CSV files."""
+    def __init__(self, csv_path: str, column_name: str, dataset_size: Optional[int] = None, 
+                 use_instruction_format: bool = False, query_column: Optional[str] = None):
+        self.data = pd.read_csv(csv_path)
+        if column_name not in self.data.columns:
+            raise ValueError(f"Column '{column_name}' not found in CSV. Available columns: {list(self.data.columns)}")
+        
+        self.column_name = column_name
+        self.use_instruction_format = use_instruction_format
+        self.query_column = query_column
+        
+        if use_instruction_format and not query_column:
+            raise ValueError("query_column must be specified when use_instruction_format=True")
+        
+        if dataset_size:
+            self.data = self.data.head(dataset_size)
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        if self.use_instruction_format:
+            query = str(self.data.iloc[idx][self.query_column])
+            formatted_text = (
+                f"Instruction: Read the medical query below and generate a simplified, 1-line question "
+                f"containing the core medical information being asked.\n"
+                f"Medical Query: {query}\nSimplified Question:"
+            )
+            return formatted_text
+        else:
+            return str(self.data.iloc[idx][self.column_name])
+
+
+def main(model_path: str, csv_path: str, dataset_column: str, batch_size: int, max_length: int,
+         layers_to_skip: int, dataset_size: Optional[int] = None, use_instruction_format: bool = False,
+         query_column: Optional[str] = None):
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -51,19 +86,12 @@ def main(model_path: str, dataset: str, dataset_column: str, batch_size: int, ma
     model_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
     print(f"Model size: {model_size_bytes / (1024 ** 2):.2f} MB")
 
-                  
-    if "gsm8k" in dataset:
-         dataset = datasets.load_dataset(dataset, "main", split=dataset_subset)
-    else:
-         dataset = datasets.load_dataset(dataset, split=dataset_subset)
-    if dataset_size:
-        dataset = dataset.select(range(dataset_size))
-
-    dataloader = DataLoader(dataset[dataset_column], batch_size=batch_size, shuffle=False, drop_last=True)
+    # Load custom CSV dataset
+    dataset = CSVDataset(csv_path, dataset_column, dataset_size, use_instruction_format, query_column)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
 
     # Initialize a list to store distances for each block across the dataset
     all_distances = [[] for _ in range(model.config.num_hidden_layers - layers_to_skip)]
-
 
     for batch in tqdm(dataloader, desc="Processing batches"):
         inputs = tokenizer(batch, return_tensors="pt", padding="longest", max_length=max_length, truncation=True).to(device)
@@ -116,18 +144,20 @@ def main(model_path: str, dataset: str, dataset_column: str, batch_size: int, ma
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Run model analysis.")
+    parser = argparse.ArgumentParser(description="Run model analysis on local CSV data.")
     parser.add_argument("--model_path", type=str, required=True, help="Path to the model.")
-    parser.add_argument("--dataset", type=str, required=True, help="Name of the dataset.")
-    parser.add_argument("--dataset_column", type=str, required=True, help="The specific column of the dataset to use.")
+    parser.add_argument("--csv_path", type=str, required=True, help="Path to the local CSV file.")
+    parser.add_argument("--dataset_column", type=str, required=True, help="The specific column of the CSV to use.")
     parser.add_argument("--batch_size", type=int, required=True, help="Batch size for processing.")
     parser.add_argument("--max_length", type=int, required=True, help="Maximum length of the tokenized input.")
     parser.add_argument("--layers_to_skip", type=int, required=True, help="Number of layers to skip.")
     parser.add_argument("--dataset_size", type=int, help="Optional argument to specify the size of the dataset.")
-    parser.add_argument("--dataset_subset", type=str, default="eval", help="Subset of the dataset to use (e.g., 'train', 'eval').")
+    parser.add_argument("--use_instruction_format", action="store_true", help="Format data as instruction-query pairs.")
+    parser.add_argument("--query_column", type=str, help="Column containing the full query (required if using instruction format).")
     parser.add_argument("--device", type=str, help="Device to run the model on ('cpu', 'cuda').")
 
     args = parser.parse_args()
 
-    main(args.model_path, args.dataset, args.dataset_column, args.batch_size,
-         args.max_length, args.layers_to_skip, args.dataset_size, args.dataset_subset)
+    main(args.model_path, args.csv_path, args.dataset_column, args.batch_size,
+         args.max_length, args.layers_to_skip, args.dataset_size, 
+         args.use_instruction_format, args.query_column)
